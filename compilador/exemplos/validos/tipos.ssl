@@ -1,0 +1,81 @@
+// Exercita structs, arrays, alias, strings, chamadas, recursao, blocos
+// aninhados com sombreamento, do-while, break e continue.
+
+type Ponto   = struct { x, y : integer; nome : string }
+type Inteiro = integer
+type Pontos  = array [10] of Ponto
+type Caminho = struct { pontos : Pontos; n : Inteiro }
+
+function distancia(a: Ponto, b: Ponto): Inteiro
+{
+    var dx, dy: integer;
+    dx = a.x - b.x;
+    dy = a.y - b.y;
+    if (dx < 0) dx = -dx;
+    if (dy < 0) dy = -dy;
+    return dx + dy;
+}
+
+function comprimento(c: Caminho): integer
+{
+    var i, total: Inteiro;
+    i = 0;
+    total = 0;
+    while (i < c.n - 1)
+    {
+        var d: integer;
+        d = distancia(c.pontos[i], c.pontos[i + 1]);
+        total = total + d;
+        i = i + 1;
+    }
+    return total;
+}
+
+function mdc(a: integer, b: integer): integer
+{
+    var r: integer;          // todo bloco declara ao menos uma variavel
+    r = b;
+    if (r == 0)
+        return a;
+    return mdc(b, a - a / b * b);
+}
+
+function rotulo(p: Ponto, prefixo: string): string
+{
+    var s: string;
+    var primeiro: char;
+    s = prefixo + p.nome;
+    primeiro = s[0];
+    if (primeiro == 'P' || !(p.x != p.y) && true)
+        s = s + "!";
+    return s;
+}
+
+function soma(n: integer): integer
+{
+    var k, total: integer;
+    k = 0;
+    total = 0;
+    do
+    {
+        var par: boolean;
+        k = k + 1;
+        par = k / 2 * 2 == k;
+        if (par) continue;
+        if (k > 100) break;
+        total = total + k;
+    } while (k < n);
+    return total;
+}
+
+function sombra(x: integer): boolean
+{
+    var y: integer;
+    y = x;
+    {
+        var x: boolean;
+        x = y > 0;
+        if (x) y = 0;
+    }
+    return y == 0 && x >= 0;
+}

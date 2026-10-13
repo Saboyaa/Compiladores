@@ -1,0 +1,27 @@
+// Exemplo 7.4.4 do livro (ordenacao de array), reescrito para obedecer a
+// gramatica: a declaracao de tipo nao termina com ';' (DT nao tem o simbolo),
+// cada bloco declara ao menos uma variavel, a troca usa uma variavel local t
+// (o livro usa o parametro n, que e o limite do laco) e os indices avancam na
+// condicao dos lacos.
+
+type intArray = array [30] of integer
+
+function bSort(a: intArray, n: integer): intArray
+{
+    var i: integer;
+    i = -1;
+    while (++i < n)
+    {
+        var j: integer;
+        j = i;
+        while (++j < n)
+            if (a[i] > a[j])
+            {
+                var t: integer;
+                t = a[i];
+                a[i] = a[j];
+                a[j] = t;
+            }
+    }
+    return a;
+}

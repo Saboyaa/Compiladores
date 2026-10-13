@@ -1,0 +1,18 @@
+type Par = struct { a, b: integer; a: char }
+
+function f(n: integer, n: char): integer
+{
+    var n, x: integer;
+    x = y + 1;
+    {
+        var x: boolean;
+        x = z;
+    }
+    return g(x);
+}
+
+function f(k: integer): integer
+{
+    var t: Tipo;
+    return k;
+}

@@ -1,0 +1,30 @@
+type Ponto = struct { x, y: integer }
+type Vetor = array [5] of integer
+
+function f(p: Ponto, v: Vetor): integer
+{
+    var b: boolean;
+    var s: string;
+    var c: char;
+    b = 1;                     // ERR_TYPE_MISMATCH
+    if (p.x) b = true;         // ERR_BOOL_TYPE_EXPECTED
+    s = s - "a";               // ERR_INVALID_TYPE
+    c = p.z;                   // ERR_FIELD_NOT_DECL
+    c = v.x;                   // ERR_KIND_NOT_STRUCT
+    c = p[0];                  // ERR_KIND_NOT_ARRAY
+    c = s[b];                  // ERR_INVALID_INDEX_TYPE
+    f = 1;                     // ERR_KIND_NOT_VAR
+    b = p(1);                  // ERR_KIND_NOT_FUNC
+    b = f(p, v, 1) == 0;       // ERR_TOO_MANY_ARGS
+    b = f(v, p) == 0;          // ERR_PARAM_TYPE (2x)
+    b = f(p) == 0;             // ERR_TOO_FEW_ARGS
+    break;                     // ERR_NOT_IN_LOOP
+    return s;                  // ERR_RETURN_TYPE
+}
+
+function g(n: Ponto): Ponto    // Ponto e tipo: ok
+{
+    var x: f;                  // ERR_TYPE_EXPECTED
+    x = 1;                     // sem erro: x tem o tipo universal
+    return n;
+}

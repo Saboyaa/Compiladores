@@ -1,0 +1,10 @@
+# binario e objetos
+lexico
+*.o
+
+# macOS
+.DS_Store
+
+# compilador (VF)
+sslc
+testes

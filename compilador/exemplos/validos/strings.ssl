@@ -1,0 +1,34 @@
+// Exemplos 7.4.2 e 7.4.3 do livro, reescritos para obedecer a gramatica.
+// O lexico nao reconhece '\0' (c = "'" . any . "'"), entao o tamanho do
+// string e passado como parametro. Como nao ha conversao de char para
+// integer, strcmp devolve -1, 0 ou 1 em vez de s1[i] - s2[i].
+
+function strcmp(s1: string, s2: string, n: integer): integer
+{
+    var i: integer;
+    i = 0;
+    while (i < n && s1[i] == s2[i])
+        i = i + 1;
+    if (i == n)
+        return 0;
+    else if (s1[i] < s2[i])
+        return -1;
+    else
+        return 1;
+}
+
+// o livro faz s[l++] = c; aqui l anda para tras
+function strinv(s: string, l: integer): string
+{
+    var i: integer;
+    i = 0;
+    l = l - 1;
+    while (i < l)
+    {
+        var c: char;
+        c = s[i];
+        s[i++] = s[l];
+        s[l--] = c;
+    }
+    return s;
+}
