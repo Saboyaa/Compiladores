@@ -155,6 +155,14 @@ static char readChar(void)
 
 void initLexer(FILE *f)
 {
+    int i;
+
+    /* pool de constantes por arquivo: os indices sao operandos de LOAD_CONST */
+    for (i = 0; i < nNumConsts; i++)
+        if (vConsts[i].type == 2)
+            free(vConsts[i]._.sVal);
+    nNumConsts = 0;
+
     fp       = f;
     nextChar = '\x20';
     eofFound = 0;

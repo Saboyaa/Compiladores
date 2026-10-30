@@ -1,0 +1,53 @@
+    BEGIN_FUNC 0, 1, 2      ; fatorial
+    LOAD_CONST 0            ; 2
+    STORE_VAR 1
+    LOAD_CONST 1            ; 1
+    STORE_VAR 2
+L1:
+    LOAD_VAR 1
+    LOAD_VAR 0
+    LE
+    FJMP_FW L2
+    LOAD_VAR 2
+    LOAD_REF 1
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    DEC
+    MUL
+    STORE_VAR 2
+    JMP_BW L1
+L2:
+    LOAD_VAR 2
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 1, 1, 2      ; somaFat
+    LOAD_CONST 2            ; 0
+    STORE_VAR 1
+    LOAD_CONST 3            ; 0
+    STORE_VAR 2
+L3:
+    LOAD_REF 1
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    LOAD_VAR 0
+    LE
+    FJMP_FW L4
+    LOAD_VAR 2
+    LOAD_VAR 1
+    CALL 0                  ; fatorial
+    ADD
+    STORE_VAR 2
+    JMP_BW L3
+L4:
+    LOAD_VAR 2
+    RETURN 1
+    END_FUNC

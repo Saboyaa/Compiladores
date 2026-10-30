@@ -1,13 +1,15 @@
-# Compilador da Simple Script Language — VF
+# Compilador da Simple Script Language
 
 Continuação do analisador léxico da VC (`../analisador`): análise **sintática**,
-de **escopo** e de **tipos** da SSL, seguindo os capítulos 3 a 6 do livro do
-Prof. Luiz Guedes. A geração de código (capítulo 7) não faz parte desta entrega.
+de **escopo** e de **tipos** da SSL (capítulos 3 a 6 do livro do Prof. Luiz
+Guedes) e **geração de código** para uma máquina virtual de pilha (capítulo 7),
+com um interpretador dessa máquina para executar e testar o código gerado.
 
 ```
 make            # compila o compilador (sslc) e os testes (testes)
 make test       # roda os testes e confere os exemplos
-./sslc exemplos/validos/tipos.ssl
+./sslc exemplos/validos/fatorial.ssl                       # gera fatorial.vm
+./sslc --executar exemplos/validos/fatorial.ssl fatorial 5 # 120
 ```
 
 ---
@@ -16,12 +18,12 @@ make test       # roda os testes e confere os exemplos
 
 O compilador é **dirigido pela sintaxe**: o analisador sintático controla a
 compilação e, a cada redução, chama `Semantics(regra)`, onde estão as regras
-de atributos de escopo e de tipos.
+de atributos de escopo e de tipos e a emissão das instruções.
 
 ```
-arquivo.ssl ──► léxico (VC) ──► tokens ──► sintático la-LR(1) ──► Semantics(r)
-                    │                          │                    │
-              erros léxicos            erro de sintaxe       erros de escopo e tipo
+arquivo.ssl ──► léxico (VC) ──► tokens ──► sintático la-LR(1) ──► Semantics(r) ──► arquivo.vm
+                    │                          │                    │                  │
+              erros léxicos            erro de sintaxe       erros de escopo e tipo   VM (--executar)
               (param tudo)             (para no 1º)          (acumulados)
 ```
 
@@ -32,16 +34,19 @@ arquivo.ssl ──► léxico (VC) ──► tokens ──► sintático la-LR(1
 | Atributos | 4 | `semantico.cpp` | pilha semântica paralela à sintática e `Semantics()` com `switch` por regra |
 | Escopo | 5 | `semantico.cpp` | tabela de símbolos como pilha de níveis; `IDD`, `IDU`, `NB` |
 | Tipos | 6 | `semantico.cpp` | kinds, tipos pré-definidos, tipo universal, `CheckTypes` e verificação das expressões e comandos |
+| Código | 7 | `semantico.cpp`, `codigo.cpp` | endereços e tamanhos, rótulos e emissão das instruções na mesma passada |
+| Execução | — | `vm.cpp` | máquina virtual que interpreta o código gerado (para conferência e testes) |
 
 O arquivo inteiro passa pelo léxico antes da análise sintática, de modo que
 qualquer lexema inválido é relatado e impede as fases seguintes. O sintático
 para no primeiro erro (o livro não trata recuperação). Os erros de escopo e de
 tipo são acumulados, e o tipo universal evita que um erro gere outros em cascata.
+O código só é gravado se não houver nenhum erro.
 
 ## 2. Gramática efetivamente usada
 
 É a gramática oficial (`Gramática.pdf`) com os marcadores semânticos dos
-capítulos 5 e 6 e uma única extensão, o comando `return`. São 84 regras,
+capítulos 5 a 7 e uma única extensão, o comando `return`. São 90 regras,
 contando a regra aumentada `S' → P '$'`. A tabela das regras está em
 `gramatica.cpp`, na mesma ordem do `enum t_rule`.
 
@@ -61,16 +66,16 @@ LDV → LDV DV | DV
 LS  → LS S | S
 DV  → 'var' LI ':' T ';'
 LI  → LI ',' IDD | IDD
-S   → 'if' '(' E ')' S
-    | 'if' '(' E ')' S 'else' S
-    | 'while' '(' E ')' ML S                                    -- ML: novo
-    | 'do' ML S 'while' '(' E ')' ';'                           -- ML: novo
+S   → 'if' '(' E ')' MT S                                      -- MT, ME (cap. 7)
+    | 'if' '(' E ')' MT S 'else' ME S
+    | 'while' MW '(' E ')' MT S                                 -- MW (cap. 7)
+    | 'do' ML S 'while' MD '(' E ')' ';'                        -- ML, MD (cap. 7)
     | NB B                                                      -- NB (fig. 6.14)
     | LV '=' E ';'
     | 'break' ';'
     | 'continue' ';'
     | 'return' E ';'                                            -- extensão
-E   → E '&&' L | E '||' L | L
+E   → E '&&' MA L | E '||' MO L | L                            -- MA, MO: curto-circuito
 L   → L '<' R | L '>' R | L '<=' R | L '>=' R | L '==' R | L '!=' R | R
 R   → R '+' Y | R '-' Y | Y
 Y   → Y '*' F | Y '/' F | F
@@ -81,7 +86,8 @@ LE  → LE ',' E | E
 LV  → LV '.' ID | LV '[' E ']' | IDU                            -- ID no campo (cap. 5)
 IDD → Id      IDU → Id      ID → Id
 TRUE → 'true'   FALSE → 'false'   CHR → c   STR → s   NUM → n
-NB → ε   NF → ε   MF → ε   MC → ε   ML → ε
+NB → ε   NF → ε   MF → ε   MC → ε
+ML → ε   MW → ε   MD → ε   MT → ε   ME → ε   MA → ε   MO → ε
 ```
 
 Diferenças em relação à gramática oficial e por quê:
@@ -94,7 +100,8 @@ Diferenças em relação à gramática oficial e por quê:
 | `NB` em `DT` struct e em `S → NB B` | São os marcadores de escopo do cap. 5 (fig. 5.9) e do cap. 6 (fig. 6.14). Não alteram a linguagem. |
 | `NF` e `MF` em `DF` | `NF` substitui o `NB` da fig. 5.10: marca o identificador como função e abre o nível dos parâmetros. `MF` preenche a função antes do corpo, o que permite a recursão (fig. 6.13). |
 | `MC` na chamada | Verifica o kind e disponibiliza a lista de parâmetros antes dos argumentos (fig. 6.23). |
-| `ML` em `while` e `do` | Marcador novo, sem efeito na linguagem. Conta os laços abertos para acusar `break`/`continue` fora de laço, que o livro não trata. |
+| `MT`, `ME` no `if`; `MW`, `MT` no `while`; `ML`, `MD` no `do` | Marcadores de rótulos da geração de código, como os do cap. 7: `MT` emite o desvio se a condição for falsa, `ME` o desvio sobre o `else`, `MW`/`ML` o rótulo do início do laço e `MD` o rótulo do `continue` do `do-while` (antes do teste). Também mantêm a pilha de laços abertos, que acusa `break`/`continue` fora de laço. |
+| `MA`, `MO` em `&&` e `\|\|` | Marcadores novos para o **curto-circuito** (seção 6). Sem eles o código do operando esquerdo já estaria emitido sem o desvio. |
 
 ## 3. Análise sintática
 
@@ -122,18 +129,20 @@ terminais).
 **Estatísticas** (`./sslc --tabela`):
 
 ```
-regras: 84   terminais: 51   não terminais: 35   estados: 171   estado final: 11
-empilhamentos: 464   transições com N: 320   reduções: 883
+regras: 90   terminais: 51   não terminais: 41   estados: 177   estado final: 11
+empilhamentos: 464   transições com N: 326   reduções: 923
 conflitos empilha/reduz: 1   conflitos reduz/reduz: 0
-empilha/reduz no estado 158 com 'else':
-  mantido:    empilha 163
-  descartado: reduz 27: S -> 'if' '(' E ')' S
+empilha/reduz no estado 165 com 'else':
+  mantido:    empilha 170
+  descartado: reduz 27: S -> 'if' '(' E ')' MT S
 ```
 
-Para conferir, a mesma gramática foi passada ao bison apenas como verificação
-(ele não é usado pelo compilador). O bison acusou 1 conflito empilha/reduz no
-mesmo estado 158 e 172 estados: o estado a mais é o de aceitação que ele cria
-para `$accept`.
+Para conferir, a gramática sem os marcadores do cap. 7 (84 regras, 171
+estados) foi passada ao bison apenas como verificação (ele não é usado pelo
+compilador). O bison acusou o mesmo único conflito empilha/reduz no `else` e
+172 estados: o estado a mais é o de aceitação que ele cria para `$accept`. Os
+marcadores do cap. 7 acrescentam 6 estados e nenhum conflito novo (conferido
+em `testes.cpp`).
 
 **Else pendente.** É o único conflito: em `if (E) S . else S`, o `else` pode ser
 empilhado ou causar a redução do `if` sem `else`. Ao montar a tabela,
@@ -248,7 +257,7 @@ e empilha o do lado esquerdo. `TopSem(k)` devolve o nó a `k` posições do topo
 | left-values | 6.22 | campo de struct; índice integer de array ou de string (o elemento de string é char); `IDU` deve ser variável ou parâmetro |
 | chamada | `MC`, `LE`, `F` (6.23) | kind função, quantidade e tipo de cada argumento |
 | `return` | extensão | o tipo do valor deve ser compatível com o tipo de retorno da função corrente |
-| `break`/`continue` | `ML` (novo) | só dentro de `while` ou `do` |
+| `break`/`continue` | `MW`/`ML` | só dentro de `while` ou `do` (pilha de laços) |
 
 **Erros** (`t_error` em `semantico.h`; cada um tem um caso em `testes.cpp`):
 
@@ -272,7 +281,7 @@ e empilha o do lado esquerdo. `TopSem(k)` devolve o nó a `k` posições do topo
 | `ERR_PARAM_TYPE` | tipos | argumento `n` incompatível com o parâmetro `n` |
 | `ERR_TOO_FEW_ARGS` | tipos | argumentos de menos |
 | `ERR_RETURN_TYPE` | tipos | `return` com tipo incompatível (extensão) |
-| `ERR_NOT_IN_LOOP` | tipos | `break`/`continue` fora de laço (marcador `ML`) |
+| `ERR_NOT_IN_LOOP` | tipos | `break`/`continue` fora de laço (pilha de laços) |
 
 **Tipo universal.** Quem recebe o tipo universal não gera novos erros: um nome
 não declarado, um `T` que não é tipo, um campo inexistente, um acesso inválido,
@@ -282,12 +291,98 @@ argumentos não são verificados.
 
 ## 6. Geração de código
 
-Fora do escopo desta entrega, por decisão do enunciado. Nenhuma instrução da
-máquina virtual é gerada. A estrutura já está pronta para recebê-la: os
-marcadores `NF` e `MF` estão nos lugares onde o cap. 7 gera `BEGIN_FUNC`, a
-pilha semântica aceita novos atributos e `ML` marca o início dos laços (onde
-ficariam os rótulos de `break`/`continue`). As inconsistências do cap. 7 estão
-registradas na seção 7 para o trabalho futuro.
+O código é emitido **na mesma passada** da análise, dentro de `Semantics()`,
+para uma máquina virtual de pilha (`codigo.h`). Cada função vira um trecho
+`BEGIN_FUNC ... END_FUNC`; o arquivo `.vm` é a listagem desses trechos, um por
+função, com uma instrução por linha e os rótulos na coluna 0.
+
+**Memória.** Cada chamada tem um *frame* com os parâmetros, na ordem da
+declaração, seguidos das variáveis locais. Todo tipo tem um tamanho em
+palavras (`Size()`): os escalares (`integer`, `char`, `boolean` e `string`)
+ocupam 1 palavra, um array `n * tamanho do elemento` e uma struct a soma dos
+campos. Os alias têm o tamanho do tipo base.
+
+| Objeto | `nIndex` | Calculado em |
+|---|---|---|
+| parâmetro | posição no frame (0, 1, ...) | `MF` |
+| variável | posição no frame, depois dos parâmetros | `DV` |
+| campo | deslocamento dentro da struct | `DT` (struct) |
+| função | número da função (operando de `CALL`) | `NF` |
+
+Variáveis de blocos irmãos reaproveitam o mesmo espaço: `NB` guarda o topo do
+frame e `S → NB B` o restaura. `BEGIN_FUNC` é emitido em `MF` e o número de
+palavras locais (o maior topo alcançado) é preenchido em `DF`.
+
+**Instruções** (operandos em palavras, salvo indicação):
+
+| Instrução | Efeito na pilha de operandos |
+|---|---|
+| `BEGIN_FUNC f, p, v` | abre o frame da função `f`: desempilha os `p` palavras de argumentos e reserva `v` palavras locais |
+| `END_FUNC` | fim do código da função (chegar a ele é erro de execução: função sem `return`) |
+| `CALL f` | chama a função `f` (os argumentos já estão na pilha) |
+| `RETURN n` | devolve as `n` palavras do topo para quem chamou |
+| `JMP_FW L`, `JMP_BW L` | desvio incondicional para frente / para trás |
+| `TJMP_FW L`, `TJMP_BW L`, `FJMP_FW L`, `FJMP_BW L` | desempilha um boolean e desvia se verdadeiro (`T`) / falso (`F`) |
+| `LOAD_REF i` | empilha o endereço da posição `i` do frame |
+| `LOAD_VAR i`, `STORE_VAR i` | empilha / desempilha para a posição `i` (variável de 1 palavra) |
+| `DE_REF n` | troca o endereço do topo pelas `n` palavras que estão nele |
+| `STORE_REF n` | desempilha `n` palavras e um endereço e grava |
+| `OFFSET d` | soma `d` ao endereço do topo (campo de struct) |
+| `INDEX t` | desempilha o índice `i` e soma `i * t` ao endereço do topo (a VM confere o limite do array) |
+| `STR_INDEX` | desempilha o índice e transforma o endereço do string no endereço do caractere |
+| `LOAD_CONST k` | empilha a constante `k` do pool do léxico (a listagem mostra o valor em comentário) |
+| `LOAD_TRUE`, `LOAD_FALSE` | empilha um boolean |
+| `DUP`, `POP` | duplica / descarta o topo |
+| `ADD`, `SUB`, `MUL`, `DIV`, `NEG`, `INC`, `DEC`, `NOT` | aritméticas e lógica (`NOT`) sobre o topo |
+| `CONCAT` | concatenação de strings (`+` com operandos `string`) |
+| `LT`, `GT`, `LE`, `GE`, `EQ`, `NE` [`n`] | comparação; com `n > 1` compara structs/arrays palavra a palavra |
+
+**Esquemas de tradução:**
+
+| Construção | Código |
+|---|---|
+| `LV → IDU` | `LOAD_REF i` |
+| `LV → LV . ID` | `<LV>` `OFFSET d` (omitido se `d = 0`) |
+| `LV → LV [ E ]` | `<LV>` `<E>` `INDEX t` (array) ou `STR_INDEX` (string) |
+| `F → LV` | `<LV>` `DE_REF n`; para variável simples de 1 palavra, `LOAD_VAR i` |
+| `S → LV = E ;` | `<LV>` `<E>` `STORE_REF n`; para variável simples de 1 palavra, `<E>` `STORE_VAR i` |
+| `++LV` / `--LV` | `<LV>` `DUP` `DUP` `DE_REF 1` `INC`/`DEC` `STORE_REF 1` `DE_REF 1` |
+| `LV++` / `LV--` | igual ao prefixo, seguido de `DEC`/`INC` (o valor antigo) |
+| `E && L` | `<E>` `DUP` `FJMP_FW La` `POP` `<L>` `La:` |
+| `E \|\| L` | `<E>` `DUP` `TJMP_FW La` `POP` `<L>` `La:` |
+| `if (E) S` | `<E>` `FJMP_FW Lf` `<S>` `Lf:` |
+| `if (E) S1 else S2` | `<E>` `FJMP_FW Lf` `<S1>` `JMP_FW Le` `Lf:` `<S2>` `Le:` |
+| `while (E) S` | `Li:` `<E>` `FJMP_FW Lf` `<S>` `JMP_BW Li` `Lf:` [`Lb:`] |
+| `do S while (E);` | `Li:` `<S>` [`Lc:`] `<E>` `TJMP_BW Li` [`Lb:`] |
+| `break` | `JMP_FW Lb` |
+| `continue` | `JMP_BW Li` no `while`; `JMP_FW Lc` no `do` |
+| `return E` | `<E>` `RETURN n` |
+| `f(E1, ..., Ek)` | `<E1>` ... `<Ek>` `CALL f` |
+
+Os rótulos `Lb` e `Lc` só existem se o laço tiver `break` / `continue`.
+Structs e arrays são **valores**: atribuição, passagem de parâmetro e retorno
+copiam todas as palavras. Strings também são valores: `s[i] = c` altera a
+cópia da variável `s`.
+
+**Máquina virtual** (`vm.cpp`). Interpreta a lista de instruções com uma pilha
+de operandos e uma memória onde os frames são empilhados. Uma palavra é um
+inteiro (`integer`, `char`, `boolean`), um string ou um endereço (posição na
+memória e, para `s[i]`, o índice do caractere). Erros de execução: divisão por
+zero, índice fora do array ou do string, função que termina sem `return` e um
+limite de passos para laços infinitos.
+
+Como a SSL não tem entrada e saída nem variáveis globais (seção 7, item 3),
+um programa é executado chamando uma das suas funções:
+
+```
+$ ./sslc --executar exemplos/validos/strings.ssl strinv abcde 5
+"edcba"
+```
+
+Os argumentos da linha de comando são escalares, convertidos pelo tipo do
+parâmetro; o resultado é impresso conforme o tipo de retorno (arrays como
+`[...]` e structs como `{campo: valor, ...}`). Funções com parâmetros
+struct/array são executadas pelos testes, que montam as palavras diretamente.
 
 ## 7. Decisões e ambiguidades
 
@@ -299,15 +394,15 @@ registradas na seção 7 para o trabalho futuro.
 | 2 | Cap. 5 usa `LV '.' ID`; a gramática diz `IDU` | `ID`: o campo é resolvido pelo tipo da struct (fig. 6.22). Com `IDU`, todo campo seria acusado como não declarado. |
 | 3 | `return` não existe na gramática | Extensão `S → 'return' E ';'`, com palavra reservada `return` no léxico (seção 2) e verificação do tipo. **Não** se verifica se todo caminho retorna um valor: isso exige análise de fluxo, que os capítulos não cobrem. |
 | 4 | `B → '{' LDV LS '}'` exige uma declaração e um comando; os exemplos violam | Mantida a gramática oficial. Não é indispensável alterar: todo bloco pode declarar uma variável, e um corpo de laço com um só comando dispensa o bloco. Os exemplos do cap. 7 foram reescritos assim (seção 9). |
-| 5 | Fig. 7.18: `NF` substitui `NB`, mas `MF` ainda lê `NB = TopSem(-2)` | `NF` marca o kind `FUNCTION_` e chama `NewBlock()` antes de `LP`. `MF` preenche retorno e parâmetros e define `curFunction`. |
-| 6 | Fig. 7.27: `LOAD_REF` com o tamanho do tipo | Geração de código: fora do escopo. |
+| 5 | Fig. 7.18: `NF` substitui `NB`, mas `MF` ainda lê `NB = TopSem(-2)` | `NF` marca o kind `FUNCTION_`, numera a função e chama `NewBlock()` antes de `LP`. `MF` preenche retorno e parâmetros, calcula a posição dos parâmetros no frame, define `curFunction` e emite `BEGIN_FUNC`. |
+| 6 | Fig. 7.27: `LOAD_REF` com o tamanho do tipo | `LOAD_REF i` recebe só a posição no frame. O tamanho é operando de quem lê ou grava (`DE_REF n`, `STORE_REF n`) e de `INDEX t`. |
 | 7 | Tipo universal com kind `SCALAR_TYPE_` (fig. 6.3) | `universal_` tem kind `UNIVERSAL_`. Também recebem kind `UNIVERSAL_` os nomes definidos por `IDU` após `ERR_NOT_DECL`; no livro o kind fica indefinido e gera `ERR_TYPE_EXPECTED`/`ERR_KIND_NOT_VAR` em cascata. `MC` também aceita `UNIVERSAL_` sem erro. |
 | 8 | Listas por `pNext` (fig. 6.6–6.13) misturam parâmetros e locais do mesmo nível | Vetores: `vParams`, `vFields` e `list`. Com `pNext`, os locais apareceriam como parâmetros e toda chamada daria `ERR_TOO_FEW_ARGS`. |
 | 9 | `CheckTypes` estrutural (6.17) não avança `f1`/`f2` e entra em laço infinito; o por nome (6.16) torna o alias incompatível com o tipo base | Por nome, com alias resolvidos (seção 5). O livro define alias como "sinônimo", o que justifica resolvê-los. Equivalência estrutural de structs é dispensada. |
-| 10 | `true`/`false`: `LOAD_TRUE`/`LOAD_FALSE` ou `LOAD_CONST` | Geração de código: fora do escopo. Na análise de tipos, os dois são boolean. |
-| 11 | `BEGIN_FUNC` com ou sem os parâmetros | Geração de código: fora do escopo. |
-| 12 | Indexação de string nos tipos (6.22), só de array na geração (7.27) | Nos tipos, `string[integer]` é `char`, inclusive como left-value. O código ficará para o cap. 7 (com `CALL_LIB`, se for o caso). |
-| 13 | `break`/`continue` sem regras de atributos | Marcador `ML` e contador de laços: `ERR_NOT_IN_LOOP` fora de laço. O destino do `continue` no `do-while` é assunto da geração de código. |
+| 10 | `true`/`false`: `LOAD_TRUE`/`LOAD_FALSE` ou `LOAD_CONST` | `LOAD_TRUE`/`LOAD_FALSE`: `true` e `false` não estão no pool de constantes. |
+| 11 | `BEGIN_FUNC` com ou sem os parâmetros | Com: `BEGIN_FUNC f, p, v`. A VM precisa de `p` para tirar os argumentos da pilha e montar o frame. |
+| 12 | Indexação de string nos tipos (6.22), só de array na geração (7.27) | `string[integer]` é `char`, inclusive como left-value, com a instrução `STR_INDEX` (sem `CALL_LIB`). |
+| 13 | `break`/`continue` sem regras de atributos | Pilha de laços abertos (`MW`/`ML`): `ERR_NOT_IN_LOOP` fora de laço. `break` vai para depois do laço; `continue` vai para o teste: no `while` é o início do laço, no `do-while` é o rótulo emitido por `MD`, antes da condição. |
 
 **Encontradas durante o trabalho:**
 
@@ -328,13 +423,18 @@ registradas na seção 7 para o trabalho futuro.
 | 26 | O analisador da VC não compila com o GCC atual (`strdup` não é declarada com `-std=c99 -pedantic`) | Única mudança na VC: `-D_POSIX_C_SOURCE=200809L` no `Makefile`. Os fontes não mudaram. |
 | 27 | No léxico da VC, o token `/` (divisão) não atualiza `nTokenLine` | Corrigido na cópia de `compilador/`, junto com a coluna. |
 | 28 | Uso de nome não declarado antes de declará-lo no mesmo nível (`type A = B` e depois `type B = ...`) | Gera `ERR_NOT_DECL` e, depois, `ERR_REDECL`, como no livro (`IDU` define o nome). Na SSL tudo é declarado antes do uso. |
+| 29 | `&&` e `\|\|` avaliam os dois operandos? | **Curto-circuito**, como em C (marcadores `MA`/`MO`). O exemplo `strcmp` (7.4.2) depende disso: em `i < n && s1[i] == s2[i]` com `i == n`, avaliar `s1[n]` seria acesso fora do string. |
+| 30 | A gramática não tem expressão como comando, então o valor de `i++` nunca é descartado | Não há `POP` de comando (item 18); `POP` só aparece no curto-circuito. |
+| 31 | Não há função principal nem entrada e saída | A VM executa a função pedida em `--executar` com argumentos da linha de comando. |
+| 32 | O pool de constantes do léxico não era zerado entre arquivos; com várias compilações no mesmo processo (os testes) ele chegaria a `MAX_CONSTS` e as constantes passariam a valer 0 | `initLexer` zera o pool: os índices são os operandos de `LOAD_CONST`. |
 
 **Mudanças no léxico** (cópia em `compilador/lexer.c`; `diff -u ../analisador/lexer.c lexer.c`):
 
 * a palavra reservada `return` (token `RETURN`), inserida em ordem alfabética
   entre `of` e `string`, o que preserva a busca binária;
 * a coluna do início de cada token (`nTokenCol`), usada nas mensagens de erro;
-* a posição do token `/` (item 27).
+* a posição do token `/` (item 27);
+* o pool de constantes zerado em `initLexer` (item 32).
 
 O léxico é compilado como C (`gcc -std=c99`) e incluído no C++ com
 `extern "C"`. A VC em `../analisador/` continua intacta.
@@ -346,7 +446,9 @@ Requisitos: `g++` e `gcc` com suporte a C++11 e C99, e `make`.
 ```
 cd compilador
 make                                  # gera sslc e testes, sem avisos com -Wall -Wextra -Wpedantic
-./sslc programa.ssl                   # compila; sai com 0 se não houver erros e 1 se houver
+./sslc programa.ssl                   # compila e grava programa.vm; sai com 0 sem erros e 1 com erros
+./sslc --codigo programa.ssl          # compila e lista o código na saída padrão
+./sslc --executar programa.ssl f 1 2  # compila e executa f(1, 2) na máquina virtual
 ./sslc --tokens programa.ssl          # mesma saída do analisador da VC
 ./sslc --tabela                       # estatísticas e conflitos da tabela la-LR(1)
 make test                             # ./testes + exemplos válidos (sem erro) e com erros (com erro)
@@ -354,7 +456,7 @@ make test                             # ./testes + exemplos válidos (sem erro) 
 cd ../analisador && make test         # a VC, inalterada
 ```
 
-`testes.cpp` é um executável único com `assert` (73 verificações). Ele cobre:
+`testes.cpp` é um executável único com `assert` (110 verificações). Ele cobre:
 
 * a tabela: exatamente 1 conflito empilha/reduz, no `else` e resolvido por
   empilhar, e 0 reduz/reduz;
@@ -364,20 +466,60 @@ cd ../analisador && make test         # a VC, inalterada
   struct e array);
 * pelo menos um caso para cada código de erro, conferindo a lista **exata** de
   erros, o que também verifica que não há erros em cascata;
-* a posição e os tokens esperados de uma mensagem de erro sintático.
-
-Como não há geração de código, a comparação com o código esperado das figuras
-7.4 a 7.10 fica para a próxima etapa.
+* a posição e os tokens esperados de uma mensagem de erro sintático;
+* a listagem exata do código de uma função com `while` e `&&`, e o tamanho do
+  frame (parâmetro struct, locais e reaproveitamento de blocos);
+* a **execução** na VM de todas as funções dos exemplos válidos e de programas
+  com bSort sobre um array, structs copiados, passados e devolvidos,
+  comparação de arrays, incrementos pré e pós-fixos, else pendente,
+  curto-circuito, `break`/`continue` em `while` e `do`, atribuição a
+  caractere de string e os erros de execução.
 
 ## 9. Exemplos de entrada e saída
 
 `exemplos/validos/`: `fatorial.ssl` (7.4.1), `strings.ssl` (7.4.2 e 7.4.3),
 `bsort.ssl` (7.4.4) e `tipos.ssl` (structs, arrays, alias, recursão,
-sombreamento, `do-while`, `break` e `continue`). Todos compilam sem erro:
+sombreamento, `do-while`, `break` e `continue`). Todos compilam sem erro, e o
+código gerado para cada um está ao lado, em `exemplos/validos/*.vm`:
 
 ```
 $ ./sslc exemplos/validos/bsort.ssl
-Compilacao concluida sem erros.
+Compilacao concluida sem erros: codigo em exemplos/validos/bsort.vm
+$ ./sslc --executar exemplos/validos/fatorial.ssl somaFat 4
+33
+$ ./sslc --executar exemplos/validos/tipos.ssl mdc 84 36
+12
+```
+
+Código gerado para `fatorial` (`exemplos/validos/fatorial.vm`):
+
+```
+    BEGIN_FUNC 0, 1, 2      ; fatorial
+    LOAD_CONST 0            ; 2
+    STORE_VAR 1
+    LOAD_CONST 1            ; 1
+    STORE_VAR 2
+L1:
+    LOAD_VAR 1
+    LOAD_VAR 0
+    LE
+    FJMP_FW L2
+    LOAD_VAR 2
+    LOAD_REF 1
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    DEC
+    MUL
+    STORE_VAR 2
+    JMP_BW L1
+L2:
+    LOAD_VAR 2
+    RETURN 1
+    END_FUNC
 ```
 
 Exemplo 7.4.4 reescrito (trecho):
@@ -452,7 +594,7 @@ na linha 27.
 
 ## Revisão final: regras × ações semânticas
 
-* **Todas as 84 regras** têm tratamento em `Semantics()`. As que só repassam
+* **Todas as 90 regras** têm tratamento em `Semantics()`. As que só repassam
   estrutura (`P`, `LDE`, `DE`, `B`, `LDV`, `LS`) caem no `default`, que empilha
   o nó do lado esquerdo conforme a convenção do cap. 4. A regra 0 (`S' → P '$'`)
   nunca é reduzida, porque a análise termina no estado `FINAL`.
@@ -460,5 +602,6 @@ na linha 27.
 * **Cap. 6:** fig. 6.1 a 6.23 implementadas. 6.3 com o universal corrigido;
   6.16/6.17 substituídas pela equivalência por nome com alias resolvidos;
   6.6–6.13 com vetores no lugar de `pNext`.
-* **Cap. 7:** não implementado (fora do escopo). As inconsistências estão
-  registradas nos itens 5, 6, 10, 11, 12 e 13 da seção 7.
+* **Cap. 7:** geração de código implementada (seção 6), com as decisões nos
+  itens 5, 6, 10, 11, 12, 13 e 29 a 32 da seção 7 e uma máquina virtual que
+  executa o código gerado.

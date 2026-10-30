@@ -19,6 +19,7 @@ typedef enum {
     LI_, S_, E_, L_, R_, Y_, F_, LE_, LV_,
     IDD_, IDU_, ID_, TRUE_, FALSE_, CHR_, STR_, NUM_,
     NB_, NF_, MF_, MC_, ML_,                    /* marcadores semanticos */
+    MW_, MD_, MT_, ME_, MA_, MO_,               /* marcadores de rotulos (cap. 7) */
     START_,                                     /* simbolo da gramatica aumentada */
     NUM_SYMBOLS
 } t_nont;
@@ -44,6 +45,7 @@ typedef enum {
     IDD_ID, IDU_ID, ID_ID,
     TRUE_RULE, FALSE_RULE, CHR_RULE, STR_RULE, NUM_RULE,
     NB_RULE, NF_RULE, MF_RULE, MC_RULE, ML_RULE,
+    MW_RULE, MD_RULE, MT_RULE, ME_RULE, MA_RULE, MO_RULE,
     NUM_RULES
 } t_rule;
 

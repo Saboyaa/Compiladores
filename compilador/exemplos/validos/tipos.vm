@@ -1,0 +1,206 @@
+    BEGIN_FUNC 0, 6, 2      ; distancia
+    LOAD_REF 0
+    DE_REF 1
+    LOAD_REF 3
+    DE_REF 1
+    SUB
+    STORE_VAR 6
+    LOAD_REF 0
+    OFFSET 1
+    DE_REF 1
+    LOAD_REF 3
+    OFFSET 1
+    DE_REF 1
+    SUB
+    STORE_VAR 7
+    LOAD_VAR 6
+    LOAD_CONST 1            ; 0
+    LT
+    FJMP_FW L1
+    LOAD_VAR 6
+    NEG
+    STORE_VAR 6
+L1:
+    LOAD_VAR 7
+    LOAD_CONST 2            ; 0
+    LT
+    FJMP_FW L2
+    LOAD_VAR 7
+    NEG
+    STORE_VAR 7
+L2:
+    LOAD_VAR 6
+    LOAD_VAR 7
+    ADD
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 1, 31, 3     ; comprimento
+    LOAD_CONST 3            ; 0
+    STORE_VAR 31
+    LOAD_CONST 4            ; 0
+    STORE_VAR 32
+L3:
+    LOAD_VAR 31
+    LOAD_REF 0
+    OFFSET 30
+    DE_REF 1
+    LOAD_CONST 5            ; 1
+    SUB
+    LT
+    FJMP_FW L4
+    LOAD_REF 0
+    LOAD_VAR 31
+    INDEX 3
+    DE_REF 3
+    LOAD_REF 0
+    LOAD_VAR 31
+    LOAD_CONST 6            ; 1
+    ADD
+    INDEX 3
+    DE_REF 3
+    CALL 0                  ; distancia
+    STORE_VAR 33
+    LOAD_VAR 32
+    LOAD_VAR 33
+    ADD
+    STORE_VAR 32
+    LOAD_VAR 31
+    LOAD_CONST 7            ; 1
+    ADD
+    STORE_VAR 31
+    JMP_BW L3
+L4:
+    LOAD_VAR 32
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 2, 2, 1      ; mdc
+    LOAD_VAR 1
+    STORE_VAR 2
+    LOAD_VAR 2
+    LOAD_CONST 8            ; 0
+    EQ
+    FJMP_FW L5
+    LOAD_VAR 0
+    RETURN 1
+L5:
+    LOAD_VAR 1
+    LOAD_VAR 0
+    LOAD_VAR 0
+    LOAD_VAR 1
+    DIV
+    LOAD_VAR 1
+    MUL
+    SUB
+    CALL 2                  ; mdc
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 3, 4, 2      ; rotulo
+    LOAD_VAR 3
+    LOAD_REF 0
+    OFFSET 2
+    DE_REF 1
+    CONCAT
+    STORE_VAR 4
+    LOAD_REF 4
+    LOAD_CONST 9            ; 0
+    STR_INDEX
+    DE_REF 1
+    STORE_VAR 5
+    LOAD_VAR 5
+    LOAD_CONST 10           ; 'P'
+    EQ
+    DUP
+    TJMP_FW L6
+    POP
+    LOAD_REF 0
+    DE_REF 1
+    LOAD_REF 0
+    OFFSET 1
+    DE_REF 1
+    NE
+    NOT
+L6:
+    DUP
+    FJMP_FW L7
+    POP
+    LOAD_TRUE
+L7:
+    FJMP_FW L8
+    LOAD_VAR 4
+    LOAD_CONST 11           ; "!"
+    CONCAT
+    STORE_VAR 4
+L8:
+    LOAD_VAR 4
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 4, 1, 3      ; soma
+    LOAD_CONST 12           ; 0
+    STORE_VAR 1
+    LOAD_CONST 13           ; 0
+    STORE_VAR 2
+L9:
+    LOAD_VAR 1
+    LOAD_CONST 14           ; 1
+    ADD
+    STORE_VAR 1
+    LOAD_VAR 1
+    LOAD_CONST 15           ; 2
+    DIV
+    LOAD_CONST 16           ; 2
+    MUL
+    LOAD_VAR 1
+    EQ
+    STORE_VAR 3
+    LOAD_VAR 3
+    FJMP_FW L10
+    JMP_FW L11
+L10:
+    LOAD_VAR 1
+    LOAD_CONST 17           ; 100
+    GT
+    FJMP_FW L12
+    JMP_FW L13
+L12:
+    LOAD_VAR 2
+    LOAD_VAR 1
+    ADD
+    STORE_VAR 2
+L11:
+    LOAD_VAR 1
+    LOAD_VAR 0
+    LT
+    TJMP_BW L9
+L13:
+    LOAD_VAR 2
+    RETURN 1
+    END_FUNC
+
+    BEGIN_FUNC 5, 1, 2      ; sombra
+    LOAD_VAR 0
+    STORE_VAR 1
+    LOAD_VAR 1
+    LOAD_CONST 18           ; 0
+    GT
+    STORE_VAR 2
+    LOAD_VAR 2
+    FJMP_FW L14
+    LOAD_CONST 19           ; 0
+    STORE_VAR 1
+L14:
+    LOAD_VAR 1
+    LOAD_CONST 20           ; 0
+    EQ
+    DUP
+    FJMP_FW L15
+    POP
+    LOAD_VAR 0
+    LOAD_CONST 21           ; 0
+    GE
+L15:
+    RETURN 1
+    END_FUNC

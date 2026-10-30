@@ -1,4 +1,4 @@
-/* Regras da gramatica da SSL com os marcadores semanticos (caps. 5 e 6)
+/* Regras da gramatica da SSL com os marcadores semanticos (caps. 5 a 7)
  * e a extensao 'return'. Ver README, secao 2. */
 
 #include <cstdio>
@@ -40,12 +40,12 @@ const std::vector<t_ruleDef> Rules = {
     { LI_LIST,  LI_,  { LI_, COMMA, IDD_ } },
     { LI_IDD,   LI_,  { IDD_ } },
 
-    { S_IF,       S_, { IF, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS, S_ } },
-    { S_IF_ELSE,  S_, { IF, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS, S_,
-                        ELSE, S_ } },
-    { S_WHILE,    S_, { WHILE, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS, ML_,
-                        S_ } },
-    { S_DO_WHILE, S_, { DO, ML_, S_, WHILE, LEFT_PARENTHESIS, E_,
+    { S_IF,       S_, { IF, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS, MT_, S_ } },
+    { S_IF_ELSE,  S_, { IF, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS, MT_, S_,
+                        ELSE, ME_, S_ } },
+    { S_WHILE,    S_, { WHILE, MW_, LEFT_PARENTHESIS, E_, RIGHT_PARENTHESIS,
+                        MT_, S_ } },
+    { S_DO_WHILE, S_, { DO, ML_, S_, WHILE, MD_, LEFT_PARENTHESIS, E_,
                         RIGHT_PARENTHESIS, SEMI_COLON } },
     { S_BLOCK,    S_, { NB_, B_ } },
     { S_ASSIGN,   S_, { LV_, EQUALS, E_, SEMI_COLON } },
@@ -53,8 +53,8 @@ const std::vector<t_ruleDef> Rules = {
     { S_CONTINUE, S_, { CONTINUE, SEMI_COLON } },
     { S_RETURN,   S_, { RETURN, E_, SEMI_COLON } },
 
-    { E_AND, E_, { E_, AND, L_ } },
-    { E_OR,  E_, { E_, OR, L_ } },
+    { E_AND, E_, { E_, AND, MA_, L_ } },
+    { E_OR,  E_, { E_, OR, MO_, L_ } },
     { E_L,   E_, { L_ } },
 
     { L_LT, L_, { L_, LESS_THAN, R_ } },
@@ -110,6 +110,12 @@ const std::vector<t_ruleDef> Rules = {
     { MF_RULE, MF_, { } },
     { MC_RULE, MC_, { } },
     { ML_RULE, ML_, { } },
+    { MW_RULE, MW_, { } },
+    { MD_RULE, MD_, { } },
+    { MT_RULE, MT_, { } },
+    { ME_RULE, ME_, { } },
+    { MA_RULE, MA_, { } },
+    { MO_RULE, MO_, { } },
 };
 
 bool IsTerminal(int symbol)
@@ -133,7 +139,7 @@ static const char *nontNames[NUM_SYMBOLS - NUM_TERMINALS] = {
     "P", "LDE", "DE", "T", "DT", "DC", "DF", "LP", "B", "LDV", "LS", "DV",
     "LI", "S", "E", "L", "R", "Y", "F", "LE", "LV",
     "IDD", "IDU", "ID", "TRUE", "FALSE", "CHR", "STR", "NUM",
-    "NB", "NF", "MF", "MC", "ML",
+    "NB", "NF", "MF", "MC", "ML", "MW", "MD", "MT", "ME", "MA", "MO",
     "S'"
 };
 

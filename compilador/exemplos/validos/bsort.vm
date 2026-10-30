@@ -1,0 +1,65 @@
+    BEGIN_FUNC 0, 31, 3     ; bSort
+    LOAD_CONST 1            ; 1
+    NEG
+    STORE_VAR 31
+L1:
+    LOAD_REF 31
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    LOAD_VAR 30
+    LT
+    FJMP_FW L2
+    LOAD_VAR 31
+    STORE_VAR 32
+L3:
+    LOAD_REF 32
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    LOAD_VAR 30
+    LT
+    FJMP_FW L4
+    LOAD_REF 0
+    LOAD_VAR 31
+    INDEX 1
+    DE_REF 1
+    LOAD_REF 0
+    LOAD_VAR 32
+    INDEX 1
+    DE_REF 1
+    GT
+    FJMP_FW L5
+    LOAD_REF 0
+    LOAD_VAR 31
+    INDEX 1
+    DE_REF 1
+    STORE_VAR 33
+    LOAD_REF 0
+    LOAD_VAR 31
+    INDEX 1
+    LOAD_REF 0
+    LOAD_VAR 32
+    INDEX 1
+    DE_REF 1
+    STORE_REF 1
+    LOAD_REF 0
+    LOAD_VAR 32
+    INDEX 1
+    LOAD_VAR 33
+    STORE_REF 1
+L5:
+    JMP_BW L3
+L4:
+    JMP_BW L1
+L2:
+    LOAD_REF 0
+    DE_REF 30
+    RETURN 30
+    END_FUNC

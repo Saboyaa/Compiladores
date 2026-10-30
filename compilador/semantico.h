@@ -1,4 +1,4 @@
-/* Analise de Escopo (cap. 5) e de Tipos (cap. 6). */
+/* Analise de Escopo (cap. 5), de Tipos (cap. 6) e Geracao de Codigo (cap. 7). */
 
 #ifndef SEMANTICO_H
 #define SEMANTICO_H
@@ -26,10 +26,15 @@ struct object {
     int     nNumElems;                 /* Array                             */
     std::vector<object *> vFields;     /* Struct (no lugar de pNext)        */
     object *pBaseType;                 /* Alias                             */
+    int     nIndex;                    /* Var, Param: posicao no frame;
+                                          Field: deslocamento na struct;
+                                          Function: numero da funcao (cap. 7) */
+    int     nSize;                     /* Array, Struct: tamanho em palavras */
 
     explicit object(int name = -1, t_kind kind = NO_KIND_DEF_)
         : nName(name), eKind(kind), pType(nullptr), pRetType(nullptr),
-          pElemType(nullptr), nNumElems(0), pBaseType(nullptr) {}
+          pElemType(nullptr), nNumElems(0), pBaseType(nullptr),
+          nIndex(0), nSize(1) {}
 };
 
 extern object *pInteger, *pChar, *pBool, *pString, *pUniversal;
@@ -42,6 +47,11 @@ object *Search(int aName);
 object *Find(int aName);
 
 bool    CheckTypes(object *t1, object *t2);
+object *BaseType(object *t);        /* segue a cadeia de alias            */
+int     Size(object *t);            /* tamanho do tipo em palavras (cap. 7) */
+
+/* funcoes na ordem de declaracao: Functions[f]->nIndex == f */
+extern std::vector<object *> Functions;
 
 /* erros: lexicos e sintaticos tambem sao registrados aqui */
 typedef enum {

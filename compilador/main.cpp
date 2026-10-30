@@ -1,12 +1,17 @@
-/* Driver do compilador da SSL (VF).
- *   sslc arquivo.ssl            compila: lexico, sintatico, escopo e tipos
- *   sslc --tokens arquivo.ssl   lista os tokens, como o analisador da VC
- *   sslc --tabela               estatisticas e conflitos da tabela la-LR(1) */
+/* Driver do compilador da SSL.
+ *   sslc arquivo.ssl                      compila e grava o codigo em arquivo.vm
+ *   sslc --codigo arquivo.ssl             compila e lista o codigo na saida
+ *   sslc --executar arquivo.ssl f a1 ...  compila e executa f(a1, ...) na VM
+ *   sslc --tokens arquivo.ssl             lista os tokens, como o analisador da VC
+ *   sslc --tabela                         estatisticas e conflitos da tabela la-LR(1) */
 
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include "codigo.h"
 #include "lalr.h"
 #include "sintatico.h"
+#include "vm.h"
 
 /* mesma saida do main.c da VC */
 static int PrintTokens(FILE *f)
@@ -54,14 +59,44 @@ static int PrintTokens(FILE *f)
 
 static int Usage(const char *prog)
 {
-    fprintf(stderr, "uso: %s [--tokens] <arquivo.ssl>\n"
-                    "     %s --tabela\n", prog, prog);
+    fprintf(stderr, "uso: %s [--tokens | --codigo] <arquivo.ssl>\n"
+                    "     %s --executar <arquivo.ssl> <funcao> [argumentos...]\n"
+                    "     %s --tabela\n", prog, prog, prog);
     return 2;
+}
+
+/* executa f(argv...) com o codigo ja gerado */
+static int Run(int argc, char *argv[])
+{
+    object *f = FindFunction(argv[0]);
+    if (f == nullptr) {
+        fprintf(stderr, "erro: funcao '%s' nao declarada\n", argv[0]);
+        return 2;
+    }
+    if (argc - 1 != (int)f->vParams.size()) {
+        fprintf(stderr, "erro: '%s' tem %d parametro(s)\n", argv[0], (int)f->vParams.size());
+        return 2;
+    }
+
+    std::vector<t_value> args;
+    for (int i = 1; i < argc; i++)
+        if (!ParseArg(f->vParams[i - 1]->pType, argv[i], args)) {
+            fprintf(stderr, "erro: argumento %d invalido: '%s'\n", i, argv[i]);
+            return 2;
+        }
+
+    try {
+        printf("%s\n", FormatValue(f->pRetType, Execute(f->nIndex, args)).c_str());
+    } catch (const std::runtime_error &e) {
+        fprintf(stderr, "erro de execucao: %s\n", e.what());
+        return 1;
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[])
 {
-    bool        tokens = false;
+    enum { COMPILE, TOKENS, CODE, RUN } mode = COMPILE;
     const char *path;
 
     if (argc == 2 && strcmp(argv[1], "--tabela") == 0) {
@@ -70,10 +105,14 @@ int main(int argc, char *argv[])
         return 0;
     }
     if (argc == 3 && strcmp(argv[1], "--tokens") == 0)
-        tokens = true;
+        mode = TOKENS;
+    else if (argc == 3 && strcmp(argv[1], "--codigo") == 0)
+        mode = CODE;
+    else if (argc >= 4 && strcmp(argv[1], "--executar") == 0)
+        mode = RUN;
     else if (argc != 2 || argv[1][0] == '-')
         return Usage(argv[0]);
-    path = argv[argc - 1];
+    path = mode == RUN ? argv[2] : argv[argc - 1];
 
     FILE *f = fopen(path, "r");
     if (f == NULL) {
@@ -81,20 +120,43 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    int status;
-    if (tokens) {
-        status = PrintTokens(f);
-    } else {
-        Compile(f);
-        for (const t_errorMsg &e : Errors)
-            printf("%s:%d:%d: %s [%s]\n", path, e.pos.line, e.pos.col,
-                   e.text.c_str(), ErrorName(e.code));
-        if (Errors.empty())
-            printf("Compilacao concluida sem erros.\n");
-        else
-            printf("\n%d erro(s) encontrado(s).\n", (int)Errors.size());
-        status = Errors.empty() ? 0 : 1;
+    if (mode == TOKENS) {
+        int status = PrintTokens(f);
+        fclose(f);
+        return status;
     }
+
+    Compile(f);
     fclose(f);
-    return status;
+    for (const t_errorMsg &e : Errors)
+        printf("%s:%d:%d: %s [%s]\n", path, e.pos.line, e.pos.col,
+               e.text.c_str(), ErrorName(e.code));
+    if (!Errors.empty()) {
+        printf("\n%d erro(s) encontrado(s).\n", (int)Errors.size());
+        return 1;
+    }
+
+    if (mode == CODE) {
+        PrintCode(stdout);
+        return 0;
+    }
+    if (mode == RUN)
+        return Run(argc - 3, argv + 3);
+
+    /* arquivo.ssl -> arquivo.vm */
+    std::string out = path;
+    size_t dot = out.rfind('.');
+    if (dot != std::string::npos && out.find('/', dot) == std::string::npos)
+        out.resize(dot);
+    out += ".vm";
+
+    FILE *vm = fopen(out.c_str(), "w");
+    if (vm == NULL) {
+        fprintf(stderr, "erro: nao foi possivel criar '%s'\n", out.c_str());
+        return 2;
+    }
+    PrintCode(vm);
+    fclose(vm);
+    printf("Compilacao concluida sem erros: codigo em %s\n", out.c_str());
+    return 0;
 }

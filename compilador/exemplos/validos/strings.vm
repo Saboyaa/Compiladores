@@ -1,0 +1,105 @@
+    BEGIN_FUNC 0, 3, 1      ; strcmp
+    LOAD_CONST 0            ; 0
+    STORE_VAR 3
+L1:
+    LOAD_VAR 3
+    LOAD_VAR 2
+    LT
+    DUP
+    FJMP_FW L2
+    POP
+    LOAD_REF 0
+    LOAD_VAR 3
+    STR_INDEX
+    DE_REF 1
+    LOAD_REF 1
+    LOAD_VAR 3
+    STR_INDEX
+    DE_REF 1
+    EQ
+L2:
+    FJMP_FW L3
+    LOAD_VAR 3
+    LOAD_CONST 1            ; 1
+    ADD
+    STORE_VAR 3
+    JMP_BW L1
+L3:
+    LOAD_VAR 3
+    LOAD_VAR 2
+    EQ
+    FJMP_FW L4
+    LOAD_CONST 2            ; 0
+    RETURN 1
+    JMP_FW L5
+L4:
+    LOAD_REF 0
+    LOAD_VAR 3
+    STR_INDEX
+    DE_REF 1
+    LOAD_REF 1
+    LOAD_VAR 3
+    STR_INDEX
+    DE_REF 1
+    LT
+    FJMP_FW L6
+    LOAD_CONST 3            ; 1
+    NEG
+    RETURN 1
+    JMP_FW L7
+L6:
+    LOAD_CONST 4            ; 1
+    RETURN 1
+L7:
+L5:
+    END_FUNC
+
+    BEGIN_FUNC 1, 2, 2      ; strinv
+    LOAD_CONST 5            ; 0
+    STORE_VAR 2
+    LOAD_VAR 1
+    LOAD_CONST 6            ; 1
+    SUB
+    STORE_VAR 1
+L8:
+    LOAD_VAR 2
+    LOAD_VAR 1
+    LT
+    FJMP_FW L9
+    LOAD_REF 0
+    LOAD_VAR 2
+    STR_INDEX
+    DE_REF 1
+    STORE_VAR 3
+    LOAD_REF 0
+    LOAD_REF 2
+    DUP
+    DUP
+    DE_REF 1
+    INC
+    STORE_REF 1
+    DE_REF 1
+    DEC
+    STR_INDEX
+    LOAD_REF 0
+    LOAD_VAR 1
+    STR_INDEX
+    DE_REF 1
+    STORE_REF 1
+    LOAD_REF 0
+    LOAD_REF 1
+    DUP
+    DUP
+    DE_REF 1
+    DEC
+    STORE_REF 1
+    DE_REF 1
+    INC
+    STR_INDEX
+    LOAD_VAR 3
+    STORE_REF 1
+    JMP_BW L8
+L9:
+    LOAD_VAR 0
+    RETURN 1
+    END_FUNC
